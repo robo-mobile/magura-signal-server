@@ -8,8 +8,8 @@
 <h1><%= title %></h1>
 <p>Welcome to <%= title %></p>
 <div>
-    <form>
-        <input type="text" placeholder="uuid of reveiver">
+    <form id="bind-form">
+        <input type="text" placeholder="uuid of reveiver" name="uuid">
         <button id="bind">Bind to receiver</button>
     </form>
 </div>
@@ -23,6 +23,12 @@
     console.log('check 1', socket.connected);
   });
 
+  document.getElementById('bind-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const formProps = Object.fromEntries(formData);
+    socket.emit('bind', { receiverUUID:  formProps.uuid });
+  })
 </script>
 </body>
 </html>

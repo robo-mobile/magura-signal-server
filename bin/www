@@ -8,7 +8,8 @@ const app = require('../app');
 const debug = require('debug')('magura-signal-server:server');
 const http = require('http');
 const { Server } = require('socket.io');
-const socketHeandshake = require('../middlewares/socketHeandshake')
+const socketHeandshake = require('../middlewares/socketHeandshake');
+const socketEvents = require('../modules/socketEvents');
 
 /**
  * Get port from environment and store in Express.
@@ -26,17 +27,11 @@ global.io = new Server(server, {
   transports: ['polling', 'websocket', 'flashsocket'],
 });
 global.io.use(socketHeandshake);
+global.io.on('connection', socketEvents);
 
 /**
  * Listen on provided port, on all network interfaces.
  */
-io.on('connection', (socket) => {
-  console.log('a user connected');
-  socket.on('disconnect', () => {
-    console.log('user disconnected');
-  });
-});
-
 
 server.listen(port);
 server.on('error', onError);
