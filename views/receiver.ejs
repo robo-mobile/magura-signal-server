@@ -15,6 +15,13 @@
       receiverUUID: '836e88c7-47d0-48c9-be67-040b8a6a6f6e'
     }).toString()
   });
+
+  socket.on('connect', () => {
+    socket.on('error', console.error);
+    socket.on('offer', (event) => {
+      console.log(event);
+    })
+  });
 </script>
 </body>
 </html>

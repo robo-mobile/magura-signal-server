@@ -2,24 +2,31 @@ const socketEvents = socket => {
   console.log('connected');
   const { receiverUUID } = socket.handshake.query;
   if (receiverUUID) {
-    console.log(socket.rooms); // Set { <socket.id> }
     socket.join(receiverUUID);
-
-  } else {
-    console.log('R: ', socket.rooms);
+    socket.roomUUID = receiverUUID;
+    const hasTransmitter = global.io.of("/").adapter.rooms.has(receiverUUID);
+    if (hasTransmitter) {
+      io.to(receiverUUID).emit('reciever_connected');
+    }
   }
 
   socket.on('disconnecting', disconnecting);
   socket.on('bind', bind);
+  socket.on('offer', offer);
+  socket.on('answer', answer);
+  socket.on('sdp', sdp);
 };
 
 // ToDo Якщо приймач, і немає кімнати, то приєднати до кімнати
 // ToDo При виході, якщо приймач, викинути з кімнати
 
-const disconnecting = function (reason) {
+const disconnecting = async function (reason) {
   const { receiverUUID } = this.handshake.query;
-  // const roomSockets = global.io.sockets.clients(receiverUUID);
-  console.log('roomSockets: ', Object.keys(this.rooms));
+  console.log('reciever: ', receiverUUID);
+  console.log('roomSockets: ', global.io.of("/").adapter.rooms);
+  if (receiverUUID) {
+    io.to(receiverUUID).emit('reciever_disconnected');
+  }
 };
 
 const bind = function (event) {
@@ -27,7 +34,25 @@ const bind = function (event) {
   const hasReceiver = global.io.of("/").adapter.rooms.has(receiverUUID);
   if (hasReceiver) {
     this.join(receiverUUID);
+    this.emit('binded', event);
+    this.roomUUID = receiverUUID;
+  } else {
+    this.emit('error', {
+      message: 'receiver not found'
+    });
   }
+};
+
+const offer = function (event) {
+  io.to(this.roomUUID).emit('offer', event);
+};
+
+const answer = function (event) {
+
+};
+
+const sdp = function (event) {
+
 }
 
 module.exports = socketEvents
