@@ -16,6 +16,22 @@
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+  const config = {
+    iceServers: [
+      {
+        urls: [
+          "stun: stun1.l.google.com:19302",
+          "stun:stun.iptel.org",
+          "stun: stun3.l.google.com:19302"]
+      },
+      {
+        url: 'turn:numb.viagenie.ca',
+        credential: 'muazkh',
+        username: 'webrtc@live.com'
+      }
+    ]
+  };
+
   const socket = io({
     transports: ['websocket', 'polling']
   });
@@ -24,7 +40,8 @@
     socket.on('error', console.error);
     socket.on('binded', () => {
       alert('Binded!')
-    })
+    });
+    socket.on('answer', answer);
   });
 
   document.getElementById('bind-form').addEventListener('submit', e => {
@@ -32,18 +49,27 @@
     const formData = new FormData(e.target);
     const formProps = Object.fromEntries(formData);
     socket.emit('bind', { receiverUUID:  formProps.uuid });
-  })
+  });
+
+  let pc = null;
 
   const createPeerConnection = async () => {
-    const pc = new RTCPeerConnection();
+    const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
+    pc = new RTCPeerConnection(configuration);
+    pc.createDataChannel('RTCDataChannel');
     const offer = await pc.createOffer();
-    socket.emit('offer', offer);
+    console.log('OFFER: ', offer);
     await pc.setLocalDescription(offer);
-
+    socket.emit('offer', offer);
     pc.onicecandidate = e => {
       console.log('E: ', e)
     };
   }
+
+  const answer = answer => {
+    console.log('answer: ', answer);
+    pc.setRemoteDescription(answer);
+  };
 
   document.getElementById('webrtc-connect').addEventListener('click', createPeerConnection)
 </script>

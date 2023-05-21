@@ -17,9 +17,6 @@ const socketEvents = socket => {
   socket.on('sdp', sdp);
 };
 
-// ToDo Якщо приймач, і немає кімнати, то приєднати до кімнати
-// ToDo При виході, якщо приймач, викинути з кімнати
-
 const disconnecting = async function (reason) {
   const { receiverUUID } = this.handshake.query;
   console.log('reciever: ', receiverUUID);
@@ -44,15 +41,16 @@ const bind = function (event) {
 };
 
 const offer = function (event) {
-  io.to(this.roomUUID).emit('offer', event);
+  console.log('offer: ', offer);
+  this.broadcast.to(this.roomUUID).emit('offer', event);
 };
 
 const answer = function (event) {
-
+  this.broadcast.to(this.roomUUID).emit('answer', event);
 };
 
 const sdp = function (event) {
-
+  this.broadcast.to(this.roomUUID).emit('sdp', event);
 }
 
 module.exports = socketEvents
