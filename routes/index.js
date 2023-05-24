@@ -7,7 +7,7 @@ router.get('/', function(req, res, next) {
 });
 
 router.get('/receiver', function(req, res, next) {
-  res.render('receiver', { title: 'Receiver' });
+  res.render('receiver', { title: 'Receiver', uuid: '836e88c7-47d0-48c9-be67-040b8a6a6f6e' });
 });
 
 router.get('/transmitter', function(req, res, next) {

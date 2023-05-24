@@ -7,20 +7,22 @@
 <body>
 <h1><%= title %></h1>
 <p>Welcome to <%= title %></p>
+<p>receiver uuid: <b><%= uuid %></b></p>
+<video id="localVideo" width="320" playsinline autoplay muted></video>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+  const localVideo = document.getElementById('localVideo');
+  let localStream = null;
+
+  const start = (async () => {
+    localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    localVideo.srcObject = localStream;
+  })()
+
   const config = {
     iceServers: [
       {
-        urls: [
-          "stun: stun1.l.google.com:19302",
-          "stun:stun.iptel.org",
-          "stun: stun3.l.google.com:19302"]
-      },
-      {
-        url: 'turn:numb.viagenie.ca',
-        credential: 'muazkh',
-        username: 'webrtc@live.com'
+        urls: 'stun:stun.l.google.com:19302'
       }
     ]
   };
@@ -28,7 +30,7 @@
   const socket = io({
     transports: ['websocket', 'polling'],
     query: new URLSearchParams({
-      receiverUUID: '836e88c7-47d0-48c9-be67-040b8a6a6f6e'
+      receiverUUID: '<%= uuid %>'
     }).toString()
   });
 
@@ -41,14 +43,19 @@
   let pc = null;
 
   const offer = async (event) => {
-    const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
+    const configuration = {offerToReceiveVideo: true, offerToReceiveAudio: true, ...config}
     pc = new RTCPeerConnection(configuration);
-    const dataChannel = pc.createDataChannel('RTCDataChannel');
-    dataChannel.addEventListener("open", (event) => {
-      console.log('datashannel')
+    localStream.getTracks().forEach(track => {
+      console.log('track: ', track)
+      pc.addTrack(track, localStream)
     });
+    pc.onconnection = () => console.log('Connection established');
+    pc.ondatachannel = e => {
+      console.log('datachannel')
+    }
+
     console.log(event);
-    pc.onicecandidate = icecandidate => {
+    pc.onicecandidate = event => {
       if (event.candidate) {
         socket.emit('ice', {
           candidate: event.candidate,
