@@ -42,6 +42,7 @@
       alert('Binded!')
     });
     socket.on('answer', answer);
+    socket.on('ice', ice);
   });
 
   document.getElementById('bind-form').addEventListener('submit', e => {
@@ -56,19 +57,37 @@
   const createPeerConnection = async () => {
     const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
     pc = new RTCPeerConnection(configuration);
-    pc.createDataChannel('RTCDataChannel');
+    const dataChannel = pc.createDataChannel('RTCDataChannel');
     const offer = await pc.createOffer();
     console.log('OFFER: ', offer);
     await pc.setLocalDescription(offer);
     socket.emit('offer', offer);
-    pc.onicecandidate = e => {
-      console.log('E: ', e)
+    pc.onicecandidate = event => {
+      if (event.candidate) {
+        socket.emit('ice', {
+          candidate: event.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex
+        })
+      }
+      console.log('E: ', event)
     };
+
+    dataChannel.addEventListener("open", (event) => {
+      console.log('datashannel')
+    });
   }
 
   const answer = answer => {
     console.log('answer: ', answer);
     pc.setRemoteDescription(answer);
+  };
+
+  const ice = async (icecandidate) => {
+    console.log('rec_ice: ', icecandidate)
+    if (pc) {
+      await pc.addIceCandidate(icecandidate.candidate);
+    }
   };
 
   document.getElementById('webrtc-connect').addEventListener('click', createPeerConnection)

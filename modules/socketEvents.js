@@ -14,7 +14,7 @@ const socketEvents = socket => {
   socket.on('bind', bind);
   socket.on('offer', offer);
   socket.on('answer', answer);
-  socket.on('sdp', sdp);
+  socket.on('ice', ice);
 };
 
 const disconnecting = async function (reason) {
@@ -49,8 +49,8 @@ const answer = function (event) {
   this.broadcast.to(this.roomUUID).emit('answer', event);
 };
 
-const sdp = function (event) {
-  this.broadcast.to(this.roomUUID).emit('sdp', event);
+const ice = function (event) {
+  this.broadcast.to(this.roomUUID).emit('ice', event);
 }
 
 module.exports = socketEvents
