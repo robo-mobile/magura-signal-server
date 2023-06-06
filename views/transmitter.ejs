@@ -2,21 +2,60 @@
 <html>
 <head>
     <title><%= title %></title>
-    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel='stylesheet' href='/stylesheets/style.css'/>
 </head>
 <body>
+<style>
+    #remoteVideo {
+        display: block;
+    }
+    .hide {
+        display: none;
+    }
+</style>
 <h1><%= title %></h1>
 <p>Welcome to <%= title %></p>
 <div>
-    <form id="bind-form">
+    <form id="bind-form" class="">
         <input type="text" placeholder="uuid of reveiver" name="uuid">
         <button id="bind">Bind to receiver</button>
     </form>
-    <button id="webrtc-connect">webRTC connect</button>
-    <video id="remoteVideo" width="320" playsinline autoplay muted></video>
+    <button id="webrtc-connect" class="hide">webRTC connect</button>
+    <div id="video-wrap" class="">
+        <video id="remoteVideo" width="640" playsinline autoplay muted></video>
+    </div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+  let state = {
+    binded: false,
+    pcConnected: false
+  };
+
+  state = new Proxy(state, {
+    set(target, prop, val) {
+      if (prop === 'binded') {
+        if (val) {
+          document.getElementById('bind-form').classList.add('hide');
+          document.getElementById('webrtc-connect').classList.remove('hide');
+        } else {
+          document.getElementById('bind-form').classList.remove('hide');
+        }
+      }
+      if (prop === 'pcConnected') {
+        if (val) {
+          document.getElementById('webrtc-connect').classList.add('hide');
+          document.getElementById('video-wrap').classList.remove('hide');
+        } else {
+          if (state.binded === true) {
+            document.getElementById('webrtc-connect').classList.remove('hide');
+          }
+          document.getElementById('video-wrap').classList.add('hide');
+        }
+      }
+    }
+  })
+
   const remoteVideo = document.getElementById('remoteVideo');
 
   const config = {
@@ -34,61 +73,79 @@
   socket.on('connect', () => {
     socket.on('error', console.error);
     socket.on('binded', () => {
-      alert('Binded!')
+      alert('Binded!');
+      state.binded = true;
     });
     socket.on('answer', answer);
     socket.on('ice', ice);
+    socket.on('unbind', unbind);
   });
 
   document.getElementById('bind-form').addEventListener('submit', e => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const formProps = Object.fromEntries(formData);
-    socket.emit('bind', { receiverUUID:  formProps.uuid });
+    socket.emit('bind', {receiverUUID: formProps.uuid});
   });
 
   let pc = null;
+  let dataChannel;
 
   const createPeerConnection = async () => {
     const configuration = {offerToReceiveVideo: true, offerToReceiveAudio: true, ...config}
     pc = new RTCPeerConnection(configuration);
     pc.ontrack = function (e) {
-      console.log('video: ', e);
       remoteVideo.srcObject = e.streams[0];
     };
-    pc.onconnection = () => console.log('Connection established');
-    const dataChannel = pc.createDataChannel('RTCDataChannel');
+    pc.onconnection = () => {
+      state.pcConnected = true;
+      console.log('connected: ');
+    };
+    dataChannel = pc.createDataChannel('RTCDataChannel');
     const offer = await pc.createOffer({offerToReceiveVideo: true});
     console.log('OFFER: ', offer);
     await pc.setLocalDescription(offer);
     socket.emit('offer', offer);
-    pc.onicecandidate = event => {
-      if (event.candidate) {
-        socket.emit('ice', {
-          candidate: event.candidate,
-          sdpMid: event.candidate.sdpMid,
-          sdpMLineIndex: event.candidate.sdpMLineIndex
-        })
+    pc.onicecandidate = iceCandedateHandler;
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        state.pcConnected = true;
       }
-      console.log('E: ', event)
-    };
+      if (['disconnected', 'closed', 'failed'].some(state => state === pc.connectionState)) {
+        console.log('STATE: ', pc.connectionState);
+        state.pcConnected = false;
+      }
+    }
 
-    dataChannel.addEventListener("open", (event) => {
-      console.log('datashannel')
-    });
+    dataChannel.onopen = () => {
+      dataChannel.send(JSON.stringify({1: 1}));
+    }
+
   }
 
-  const answer = answer => {
-    console.log('answer: ', answer);
-    pc.setRemoteDescription(answer);
-  };
+  const answer = answer => pc.setRemoteDescription(answer);
 
   const ice = async (icecandidate) => {
-    console.log('rec_ice: ', icecandidate)
     if (pc) {
       await pc.addIceCandidate(icecandidate.candidate);
     }
   };
+
+  const unbind = () => {
+    console.log('unbind')
+    state.binded = false;
+  };
+
+  const iceCandedateHandler = event => {
+    if (event.candidate) {
+      socket.emit('ice', {
+        candidate: event.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex
+      })
+    }
+    console.log('E: ', event)
+  }
 
   document.getElementById('webrtc-connect').addEventListener('click', createPeerConnection)
 </script>

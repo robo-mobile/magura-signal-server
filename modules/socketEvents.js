@@ -22,7 +22,7 @@ const disconnecting = async function (reason) {
   console.log('reciever: ', receiverUUID);
   console.log('roomSockets: ', global.io.of("/").adapter.rooms);
   if (receiverUUID) {
-    io.to(receiverUUID).emit('reciever_disconnected');
+    io.to(receiverUUID).emit('unbind');
   }
 };
 
@@ -41,7 +41,6 @@ const bind = function (event) {
 };
 
 const offer = function (event) {
-  console.log('offer: ', offer);
   this.broadcast.to(this.roomUUID).emit('offer', event);
 };
 

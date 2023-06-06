@@ -8,7 +8,6 @@
 <h1><%= title %></h1>
 <p>Welcome to <%= title %></p>
 <p>receiver uuid: <b><%= uuid %></b></p>
-<video id="localVideo" width="320" playsinline autoplay muted></video>
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const localVideo = document.getElementById('localVideo');
@@ -16,7 +15,6 @@
 
   const start = (async () => {
     localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
-    localVideo.srcObject = localStream;
   })()
 
   const config = {
@@ -38,33 +36,34 @@
     socket.on('error', console.error);
     socket.on('offer', offer);
     socket.on('ice', ice);
+    socket.on('unbind', unbind);
   });
 
   let pc = null;
+  let datachannel = null;
 
   const offer = async (event) => {
     const configuration = {offerToReceiveVideo: true, offerToReceiveAudio: true, ...config}
     pc = new RTCPeerConnection(configuration);
     localStream.getTracks().forEach(track => {
-      console.log('track: ', track)
       pc.addTrack(track, localStream)
     });
     pc.onconnection = () => console.log('Connection established');
     pc.ondatachannel = e => {
-      console.log('datachannel')
-    }
-
-    console.log(event);
-    pc.onicecandidate = event => {
-      if (event.candidate) {
-        socket.emit('ice', {
-          candidate: event.candidate,
-          sdpMid: event.candidate.sdpMid,
-          sdpMLineIndex: event.candidate.sdpMLineIndex
-        })
+      console.log('datachannel: ', e);
+      if (e.channel.label === 'RTCDataChannel') {
+        datachannel = e.channel;
+        datachannel.onmessage = message => {
+          console.log('message: ', message);
+        };
       }
-      console.log('E: ', event)
-    };
+    }
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'closed', 'failed'].some(state => state === pc.connectionState)) {
+        console.log('STATE: ', pc.connectionState);
+      }
+    }
+    pc.onicecandidate = iceCandedateHandler;
     await pc.setRemoteDescription(event);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
@@ -77,6 +76,25 @@
     if (pc) {
       await pc.addIceCandidate(icecandidate.candidate);
     }
+  }
+
+  const iceCandedateHandler = event => {
+    if (event.candidate) {
+      socket.emit('ice', {
+        candidate: event.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex
+      })
+    }
+    console.log('E: ', event)
+  }
+
+  const unbind = () => {
+    console.log('unbind')
+  };
+
+  const handleReceiveMessage = message => {
+
   }
 </script>
 </body>
