@@ -79,6 +79,9 @@
     socket.on('answer', answer);
     socket.on('ice', ice);
     socket.on('unbind', unbind);
+    socket.on('disconnect', (reason) => {
+      socket.removeAllListeners();
+    });
   });
 
   document.getElementById('bind-form').addEventListener('submit', e => {

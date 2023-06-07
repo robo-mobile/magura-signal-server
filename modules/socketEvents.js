@@ -22,7 +22,8 @@ const disconnecting = async function (reason) {
   console.log('reciever: ', receiverUUID);
   console.log('roomSockets: ', global.io.of("/").adapter.rooms);
   if (receiverUUID) {
-    io.to(receiverUUID).emit('unbind');
+    global.io.to(receiverUUID).emit('unbind');
+    global.io.in(receiverUUID).socketsLeave(receiverUUID);
   }
 };
 

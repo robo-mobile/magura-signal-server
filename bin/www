@@ -3,7 +3,7 @@
 /**
  * Module dependencies.
  */
-
+require('dotenv-flow').config({});
 const app = require('../app');
 const debug = require('debug')('magura-signal-server:server');
 const http = require('http');
