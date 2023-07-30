@@ -25,6 +25,10 @@ app.set('port', port);
 const server = http.createServer(app);
 global.io = new Server(server, {
   transports: ['polling', 'websocket', 'flashsocket'],
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 global.io.use(socketHeandshake);
 global.io.on('connection', socketEvents);
