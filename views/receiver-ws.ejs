@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+<body>
+<h1><%= title %></h1>
+<p>Welcome to <%= title %></p>
+<p>receiver uuid: <b><%= uuid %></b></p>
+<script>
+  const uuid = '<%= uuid %>';
+  const localVideo = document.getElementById('localVideo');
+  let localStream = null;
+
+  const start = (async () => {
+    localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+  })()
+
+  const config = {
+    iceServers: [
+      {
+        urls: 'stun:stun.l.google.com:19302'
+      }
+    ]
+  };
+
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = new URL(`${protocol}://${location.host}`);
+  url.searchParams.append('receiverUUID', uuid);
+
+  let socket = new WebSocket(url);
+
+  socket.onopen = function(e) {
+    console.log('ws_open');
+  };
+
+  socket.onmessage = (event) => {
+    console.log('event: ', event)
+  }
+
+</script>
+</body>
+</html>

@@ -7,9 +7,12 @@ require('dotenv-flow').config({});
 const app = require('../app');
 const debug = require('debug')('magura-signal-server:server');
 const http = require('http');
+const WebSocket = require( 'ws');
 const { Server } = require('socket.io');
 const socketHeandshake = require('../middlewares/socketHeandshake');
 const socketEvents = require('../modules/socketEvents');
+const webSocketEvents = require('../modules/webSocketEvents');
+
 
 /**
  * Get port from environment and store in Express.
@@ -23,15 +26,18 @@ app.set('port', port);
  */
 
 const server = http.createServer(app);
-global.io = new Server(server, {
-  transports: ['polling', 'websocket', 'flashsocket'],
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-global.io.use(socketHeandshake);
-global.io.on('connection', socketEvents);
+const webSocketServer = new WebSocket.Server({ server });
+webSocketServer.on('connection', webSocketEvents);
+
+// global.io = new Server(server, {
+//   transports: ['polling', 'websocket', 'flashsocket'],
+//   cors: {
+//     origin: "*",
+//     methods: ["GET", "POST"]
+//   }
+// });
+// global.io.use(socketHeandshake);
+// global.io.on('connection', socketEvents);
 
 /**
  * Listen on provided port, on all network interfaces.

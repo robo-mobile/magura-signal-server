@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css'/>
+</head>
+<body>
+<style>
+    #remoteVideo {
+        display: block;
+    }
+    .hide {
+        display: none;
+    }
+</style>
+<h1><%= title %></h1>
+<p>Welcome to <%= title %></p>
+<div>
+    <form id="bind-form" class="">
+        <input type="text" placeholder="uuid of reveiver" name="uuid">
+        <button id="bind">Bind to receiver</button>
+    </form>
+    <button id="webrtc-connect" class="hide">webRTC connect</button>
+    <div id="video-wrap" class="">
+        <video id="remoteVideo" width="640" playsinline autoplay muted></video>
+    </div>
+</div>
+<script src="/events/events.js"></script>
+<script>
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = new URL(`${protocol}://${location.host}`);
+
+  let socket = new WebSocket(url);
+
+  socket.emit = (eventName, payload) => {
+    console.log('EVENT: ', eventName, payload);
+    socket.send(JSON.stringify({
+      type: eventName,
+      payload
+    }))
+  }
+
+  socket.onmessage = (event) => {
+    console.log('event: ', event)
+  }
+
+  socket.onopen = function(e) {
+    console.log('ws_open');
+  };
+
+
+  document.getElementById('bind-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const formProps = Object.fromEntries(formData);
+    socket.emit('bind', {receiverUUID: formProps.uuid});
+  });
+
+</script>
+</body>
+</html>
