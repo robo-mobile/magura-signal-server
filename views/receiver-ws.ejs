@@ -33,11 +33,78 @@
 
   socket.onopen = function(e) {
     console.log('ws_open');
+    socket.onoffer = offer;
+    socket.onice = ice;
   };
 
-  socket.onmessage = (event) => {
-    console.log('event: ', event)
+  socket.emitEvent = (eventName, payload) => {
+    socket.send(JSON.stringify({
+      type: eventName,
+      payload
+    }))
   }
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    const eventName = `on${data.type}`;
+    if (socket[eventName]) {
+      socket[eventName](data.payload);
+    }
+  }
+
+  let pc = null;
+  let datachannel = null;
+
+  const offer = async (event) => {
+    console.log('OFFER: ', event)
+    const configuration = {offerToReceiveVideo: true, offerToReceiveAudio: true, ...config}
+    pc = new RTCPeerConnection(configuration);
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream)
+    });
+    pc.onconnection = () => console.log('Connection established');
+    pc.ondatachannel = e => {
+      console.log('datachannel: ', e);
+      if (e.channel.label === 'RTCDataChannel') {
+        datachannel = e.channel;
+        datachannel.onmessage = message => {
+          console.log('message: ', message);
+        };
+      }
+    }
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'closed', 'failed'].some(state => state === pc.connectionState)) {
+        console.log('STATE: ', pc.connectionState);
+      }
+    }
+    pc.onicecandidate = iceCandedateHandler;
+    await pc.setRemoteDescription(event);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emitEvent('answer', answer);
+  }
+
+  const ice = async (icecandidate) => {
+    console.log('rec_ice: ', icecandidate)
+    if (pc) {
+      await pc.addIceCandidate(icecandidate.candidate);
+    }
+  }
+
+  const iceCandedateHandler = event => {
+    console.log('ice_handler');
+    if (event.candidate) {
+      socket.emitEvent('ice', {
+        candidate: event.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex
+      })
+    }
+  }
+
+  const unbind = () => {
+    console.log('unbind')
+  };
 
 </script>
 </body>

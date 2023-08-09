@@ -25,15 +25,53 @@
         <video id="remoteVideo" width="640" playsinline autoplay muted></video>
     </div>
 </div>
-<script src="/events/events.js"></script>
 <script>
+  let state = {
+    binded: false,
+    pcConnected: false
+  };
+
+  const config = {
+    iceServers: [
+      {
+        urls: 'stun:stun.l.google.com:19302'
+      }
+    ]
+  };
+
+  state = new Proxy(state, {
+    set(target, prop, val) {
+      if (prop === 'binded') {
+        if (val) {
+          document.getElementById('bind-form').classList.add('hide');
+          document.getElementById('webrtc-connect').classList.remove('hide');
+        } else {
+          document.getElementById('bind-form').classList.remove('hide');
+        }
+      }
+      if (prop === 'pcConnected') {
+        console.log('value: ', val);
+        if (val) {
+          document.getElementById('webrtc-connect').classList.add('hide');
+          document.getElementById('video-wrap').classList.remove('hide');
+        } else {
+          if (state.binded === true) {
+            document.getElementById('webrtc-connect').classList.remove('hide');
+          }
+          document.getElementById('video-wrap').classList.add('hide');
+        }
+      }
+    }
+  })
+
+  const remoteVideo = document.getElementById('remoteVideo');
+
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
   const url = new URL(`${protocol}://${location.host}`);
 
   let socket = new WebSocket(url);
 
-  socket.emit = (eventName, payload) => {
-    console.log('EVENT: ', eventName, payload);
+  socket.emitEvent = (eventName, payload) => {
     socket.send(JSON.stringify({
       type: eventName,
       payload
@@ -41,21 +79,92 @@
   }
 
   socket.onmessage = (event) => {
-    console.log('event: ', event)
+    console.log('message: ', event);
+    const data = JSON.parse(event.data);
+    const eventName = `on${data.type}`;
+    if (socket[eventName]) {
+      socket[eventName](data.payload);
+    }
   }
 
   socket.onopen = function(e) {
     console.log('ws_open');
+    socket.onice = ice;
+    socket.onanswer = answer;
+    socket.onbinded = () => {
+      state.binded = true;
+    }
   };
-
 
   document.getElementById('bind-form').addEventListener('submit', e => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const formProps = Object.fromEntries(formData);
-    socket.emit('bind', {receiverUUID: formProps.uuid});
+    socket.emitEvent('bind', {receiverUUID: formProps.uuid});
   });
 
+  let pc = null;
+  let dataChannel;
+
+  const createPeerConnection = async () => {
+    const configuration = {offerToReceiveVideo: true, offerToReceiveAudio: true, ...config}
+    pc = new RTCPeerConnection(configuration);
+    pc.ontrack = function (e) {
+      remoteVideo.srcObject = e.streams[0];
+    };
+    pc.onconnection = () => {
+      state.pcConnected = true;
+    };
+    dataChannel = pc.createDataChannel('RTCDataChannel');
+    const offer = await pc.createOffer({offerToReceiveVideo: true});
+    await pc.setLocalDescription(offer);
+    socket.emitEvent('offer', offer);
+    pc.onicecandidate = iceCandedateHandler;
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        console.log('connected')
+        state.pcConnected = true;
+      }
+      if (['disconnected', 'closed', 'failed'].some(state => state === pc.connectionState)) {
+        state.pcConnected = false;
+      }
+    }
+
+    dataChannel.onopen = () => {
+      dataChannel.send(JSON.stringify({1: 1}));
+    }
+
+  }
+
+  const answer = answer => {
+    console.log('ANSWER: ', answer)
+    pc.setRemoteDescription(answer)
+  };
+
+  const ice = async (icecandidate) => {
+    console.log('ON_ICE: ', icecandidate);
+    if (pc) {
+      await pc.addIceCandidate(icecandidate.candidate);
+    }
+  };
+
+  const unbind = () => {
+    console.log('unbind')
+    state.binded = false;
+  };
+
+  const iceCandedateHandler = event => {
+    // console.log('iceCandidateHandler: ', event);
+    if (event.candidate) {
+      socket.emitEvent('ice', {
+        candidate: event.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex
+      })
+    }
+  }
+
+  document.getElementById('webrtc-connect').addEventListener('click', createPeerConnection)
 </script>
 </body>
 </html>
